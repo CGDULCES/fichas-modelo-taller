@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fichas de Modelo · Taller</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#1E1A17;
+    --bg-panel:#2A241F;
+    --bg-panel-2:#332C25;
+    --border:#46392C;
+    --border-soft:#3A3128;
+    --text:#EDE6D9;
+    --text-muted:#A79484;
+    --accent:#C08A4E;
+    --accent-soft:rgba(192,138,78,0.16);
+    --sage:#8A9A7E;
+    --sage-soft:rgba(138,154,126,0.16);
+    --rust:#B5563C;
+    --rust-soft:rgba(181,86,60,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{ font-family:'Fraunces',serif; }
+  .mono{ font-family:'IBM Plex Mono',monospace; }
+
+  /* ---------- dimension-line motif ---------- */
+  .dimline{
+    display:flex; align-items:center; gap:6px;
+    color:var(--text-muted); font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:0.04em; user-select:none;
+  }
+  .dimline::before, .dimline::after{ content:""; flex:1; height:1px; background:var(--border); position:relative; }
+  .dimline::before{ margin-right:2px; }
+  .dimline::after{ margin-left:2px; }
+
+  /* ---------- layout ---------- */
+  .wrap{ max-width:1080px; margin:0 auto; padding:32px 24px 80px; }
+  header.top{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:8px; }
+  header.top h1{ font-size:28px; font-weight:600; margin:0; letter-spacing:-0.01em; }
+  header.top .tag{ color:var(--text-muted); font-size:13px; }
+  .top-actions{ display:flex; gap:10px; align-items:center; }
+
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{
+    background:var(--accent); color:#1E1A17; border:none; border-radius:6px;
+    padding:10px 16px; font-weight:600; font-size:14px; transition:filter .15s, transform .05s;
+  }
+  .btn:hover{ filter:brightness(1.08); }
+  .btn:active{ transform:scale(0.98); }
+  .btn.secondary{ background:transparent; color:var(--text); border:1px solid var(--border); }
+  .btn.secondary:hover{ background:var(--bg-panel-2); }
+  .btn.danger{ background:transparent; color:var(--rust); border:1px solid var(--rust); }
+  .btn.danger:hover{ background:var(--rust-soft); }
+  .btn.small{ padding:6px 10px; font-size:12px; }
+
+  /* ---------- toolbar ---------- */
+  .toolbar{ display:flex; gap:10px; margin:20px 0 18px; flex-wrap:wrap; }
+  .search{
+    flex:1; min-width:220px; background:var(--bg-panel); border:1px solid var(--border);
+    border-radius:6px; padding:10px 14px; color:var(--text); font-size:14px;
+  }
+  .search:focus{ outline:none; border-color:var(--accent); }
+  .filter-chip{
+    background:var(--bg-panel); border:1px solid var(--border); color:var(--text-muted);
+    border-radius:6px; padding:10px 14px; font-size:13px; display:flex; align-items:center; gap:8px;
+  }
+  .filter-chip.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+
+  /* ---------- grid of models ---------- */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:14px; }
+  .card{
+    background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:10px;
+    overflow:hidden; cursor:pointer; transition:border-color .15s, transform .1s;
+    display:flex; flex-direction:column;
+  }
+  .card:hover{ border-color:var(--accent); transform:translateY(-1px); }
+  .card .thumb{
+    height:150px; background:var(--bg-panel-2) center/cover no-repeat;
+    display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:12px;
+  }
+  .card .body{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .card .codigo{ font-size:11px; color:var(--accent); letter-spacing:0.03em; }
+  .card .nombre{ font-size:16px; font-weight:600; font-family:'Fraunces',serif; }
+  .card .meta{ font-size:12px; color:var(--text-muted); }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 8px; border-radius:20px; width:fit-content; }
+  .badge.si{ background:var(--sage-soft); color:var(--sage); }
+  .badge.no{ background:var(--rust-soft); color:var(--rust); }
+  .badge .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+  .empty{ text-align:center; padding:60px 20px; color:var(--text-muted); }
+  .empty .serif{ font-size:20px; color:var(--text); margin-bottom:6px; }
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,8,6,0.7); display:none;
+    align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:50;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:12px;
+    width:100%; max-width:640px; padding:28px; margin-bottom:40px;
+  }
+  .modal h2{ margin:0 0 4px; font-size:22px; }
+  .modal .close{ float:right; background:none; border:none; color:var(--text-muted); font-size:20px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px; letter-spacing:0.02em; }
+  .field input[type=text], .field input[type=date], .field textarea{
+    width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit;
+  }
+  .field input:focus, .field textarea:focus{ outline:none; border-color:var(--accent); }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .toggle-row{ display:flex; align-items:center; gap:10px; }
+  .switch{ position:relative; width:40px; height:22px; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{ position:absolute; inset:0; background:var(--border); border-radius:20px; cursor:pointer; transition:.15s; }
+  .slider::before{ content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:var(--text); border-radius:50%; transition:.15s; }
+  .switch input:checked + .slider{ background:var(--sage); }
+  .switch input:checked + .slider::before{ transform:translateX(18px); background:#1E1A17; }
+
+  .materiales-box{ border:1px solid var(--border); border-radius:6px; padding:10px; max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .mat-item{ display:flex; align-items:center; gap:8px; font-size:13px; }
+  .mat-item input{ accent-color:var(--accent); }
+  .add-mat-row{ display:flex; gap:8px; margin-top:10px; }
+  .add-mat-row input{ flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px 10px; color:var(--text); font-size:13px; }
+
+  .fotos-grid{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .foto-thumb{ position:relative; width:70px; height:70px; border-radius:6px; overflow:hidden; border:1px solid var(--border); }
+  .foto-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .foto-thumb .del{ position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:4px; width:18px; height:18px; font-size:11px; line-height:1; }
+  .upload-btn{ border:1px dashed var(--border); border-radius:6px; padding:10px; text-align:center; color:var(--text-muted); font-size:12px; cursor:pointer; }
+  .upload-btn:hover{ border-color:var(--accent); color:var(--accent); }
+
+  .modal-actions{ display:flex; justify-content:space-between; margin-top:22px; gap:10px; }
+  .modal-actions .right{ display:flex; gap:10px; }
+
+  /* ---------- config screen ---------- */
+  .config-screen{ max-width:440px; margin:80px auto; padding:28px; background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; }
+  .config-screen p{ color:var(--text-muted); font-size:13px; line-height:1.6; }
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--bg-panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none;
+  }
+  .toast.show{ opacity:1; }
+
+  @media(max-width:600px){ .row2{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div id="configScreen" class="config-screen" style="display:none;">
+  <h2 class="serif">Conectar con Supabase</h2>
+  <p>Pegá la URL y la clave <strong>anon/public</strong> de tu proyecto de Supabase (fábrica de muebles). Las encontrás en Project Settings → API. Se guardan solo en este navegador.</p>
+  <div class="field"><label>Supabase URL</label><input type="text" id="cfgUrl" placeholder="https://xxxxx.supabase.co"></div>
+  <div class="field"><label>Anon Key</label><input type="text" id="cfgKey" placeholder="eyJhbGciOi..."></div>
+  <button class="btn" onclick="saveConfig()" style="width:100%;">Guardar y entrar</button>
+</div>
+
+<div id="app" class="wrap" style="display:none;">
+  <header class="top">
+    <div>
+      <h1>Fichas de Modelo</h1>
+      <div class="tag">Catálogo de muebles del taller</div>
+    </div>
+    <div class="top-actions">
+      <button class="btn secondary small" onclick="openConfig()">Config</button>
+      <button class="btn" onclick="openModal()">+ Nuevo modelo</button>
+    </div>
+  </header>
+  <div class="dimline">CÓDIGO · MEDIDAS · MATERIALES · MUESTRA</div>
+
+  <div class="toolbar">
+    <input class="search" id="searchInput" type="text" placeholder="Buscar por código, nombre, color o material..." oninput="renderList()">
+    <button class="filter-chip" id="filterMuestra" onclick="toggleMuestraFilter()">Con muestra</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div id="emptyState" class="empty" style="display:none;">
+    <div class="serif">Todavía no hay modelos cargados</div>
+    <div>Creá el primero con "+ Nuevo modelo"</div>
+  </div>
+</div>
+
+<!-- Modal crear/editar -->
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <h2 class="serif" id="modalTitle">Nuevo modelo</h2>
+    <div class="dimline" style="margin:10px 0 18px;">FICHA TÉCNICA</div>
+
+    <input type="hidden" id="modeloId">
+    <div class="row2">
+      <div class="field"><label>Código</label><input type="text" id="fCodigo" placeholder="DS-M001"></div>
+      <div class="field"><label>Fecha de creación</label><input type="date" id="fFecha"></div>
+    </div>
+    <div class="field"><label>Nombre</label><input type="text" id="fNombre" placeholder="Mesa ratona Lapacho"></div>
+    <div class="row2">
+      <div class="field"><label>Medidas</label><input type="text" id="fMedidas" placeholder='ej: 120 x 60 x 45 cm'></div>
+      <div class="field"><label>Color</label><input type="text" id="fColor" placeholder="Nogal"></div>
+    </div>
+
+    <div class="field">
+      <label>Materiales usados (podés marcar varios)</label>
+      <div class="materiales-box" id="materialesBox"></div>
+      <div class="add-mat-row">
+        <input type="text" id="nuevoMaterial" placeholder="Agregar material nuevo al catálogo...">
+        <button class="btn secondary small" onclick="addMaterial()">Agregar</button>
+      </div>
+    </div>
+
+    <div class="field"><label>Observaciones</label><textarea id="fObservaciones" placeholder="Notas de fabricación, terminación, etc."></textarea></div>
+
+    <div class="field">
+      <div class="toggle-row">
+        <label class="switch"><input type="checkbox" id="fTieneMuestra" onchange="toggleUbicacion()"><span class="slider"></span></label>
+        <span>¿Hay muestra física hecha?</span>
+      </div>
+    </div>
+    <div class="field" id="ubicacionField" style="display:none;">
+      <label>Ubicación de la muestra</label>
+      <input type="text" id="fUbicacion" placeholder="Depósito, estante 3">
+    </div>
+
+    <div class="field">
+      <label>Fotos</label>
+      <div class="fotos-grid" id="fotosGrid"></div>
+      <label class="upload-btn" style="display:block; margin-top:8px;">
+        + Subir fotos
+        <input type="file" id="fotoInput" accept="image/*" multiple style="display:none;" onchange="uploadFotos(event)">
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn danger" id="btnDelete" style="display:none;" onclick="deleteModelo()">Eliminar modelo</button>
+      <div class="right">
+        <button class="btn secondary" onclick="closeModal()">Cancelar</button>
+        <button class="btn" onclick="saveModelo()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let sb = null;
+let materiales = [];
+let modelos = [];
+let currentModeloMateriales = [];
+let currentFotos = [];
+let showOnlyMuestra = false;
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function openConfig(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('configScreen').style.display='block';
+  document.getElementById('cfgUrl').value = localStorage.getItem('sb_url') || '';
+  document.getElementById('cfgKey').value = localStorage.getItem('sb_key') || '';
+}
+
+function saveConfig(){
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  if(!url || !key){ showToast('Completá URL y clave'); return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  initApp();
+}
+
+function initApp(){
+  const url = localStorage.getItem('sb_url');
+  const key = localStorage.getItem('sb_key');
+  if(!url || !key){ openConfig(); return; }
+  sb = supabase.createClient(url, key);
+  document.getElementById('configScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  loadAll();
+}
+
+async function loadAll(){
+  await loadMateriales();
+  await loadModelos();
+}
+
+async function loadMateriales(){
+  const { data, error } = await sb.from('materiales').select('*').order('nombre');
+  if(error){ showToast('Error cargando materiales: '+error.message); return; }
+  materiales = data || [];
+}
+
+async function loadModelos(){
+  const { data, error } = await sb
+    .from('modelos')
+    .select('*, modelo_materiales(material_id, notas, materiales(nombre)), fotos(id, url)')
+    .order('created_at', { ascending:false });
+  if(error){ showToast('Error cargando modelos: '+error.message); return; }
+  modelos = data || [];
+  renderList();
+}
+
+function renderList(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  let filtered = modelos.filter(m=>{
+    if(showOnlyMuestra && !m.tiene_muestra) return false;
+    if(!q) return true;
+    const matNames = (m.modelo_materiales||[]).map(mm=>mm.materiales?.nombre||'').join(' ').toLowerCase();
+    const haystack = [m.codigo, m.nombre, m.color, m.medidas, matNames].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+
+  document.getElementById('emptyState').style.display = filtered.length ? 'none' : 'block';
+
+  filtered.forEach(m=>{
+    const thumbUrl = (m.fotos && m.fotos[0]) ? m.fotos[0].url : null;
+    const matNames = (m.modelo_materiales||[]).map(mm=>mm.materiales?.nombre).filter(Boolean).join(', ') || 'Sin materiales cargados';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.onclick = ()=>openModal(m.id);
+    card.innerHTML = `
+      <div class="thumb" style="${thumbUrl ? `background-image:url('${thumbUrl}')` : ''}">${thumbUrl ? '' : 'Sin foto'}</div>
+      <div class="body">
+        <div class="codigo mono">${escapeHtml(m.codigo)}</div>
+        <div class="nombre">${escapeHtml(m.nombre)}</div>
+        <div class="meta">${escapeHtml(m.medidas || 'Medidas no cargadas')} ${m.color ? '· '+escapeHtml(m.color) : ''}</div>
+        <div class="meta">${escapeHtml(matNames)}</div>
+        <span class="badge ${m.tiene_muestra?'si':'no'}"><span class="dot"></span>${m.tiene_muestra ? 'Con muestra' : 'Sin muestra'}</span>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function toggleMuestraFilter(){
+  showOnlyMuestra = !showOnlyMuestra;
+  document.getElementById('filterMuestra').classList.toggle('active', showOnlyMuestra);
+  renderList();
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+function renderMaterialesBox(selectedIds){
+  const box = document.getElementById('materialesBox');
+  box.innerHTML = '';
+  materiales.forEach(mat=>{
+    const checked = selectedIds.includes(mat.id) ? 'checked' : '';
+    const item = document.createElement('label');
+    item.className = 'mat-item';
+    item.innerHTML = `<input type="checkbox" value="${mat.id}" ${checked}> ${escapeHtml(mat.nombre)}`;
+    box.appendChild(item);
+  });
+}
+
+async function addMaterial(){
+  const input = document.getElementById('nuevoMaterial');
+  const nombre = input.value.trim();
+  if(!nombre) return;
+  const { data, error } = await sb.from('materiales').insert({ nombre }).select().single();
+  if(error){ showToast('No se pudo agregar: '+error.message); return; }
+  materiales.push(data);
+  materiales.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const selected = getSelectedMateriales();
+  renderMaterialesBox(selected);
+  input.value = '';
+}
+
+function getSelectedMateriales(){
+  return Array.from(document.querySelectorAll('#materialesBox input:checked')).map(el=>el.value);
+}
+
+function toggleUbicacion(){
+  document.getElementById('ubicacionField').style.display =
+    document.getElementById('fTieneMuestra').checked ? 'block' : 'none';
+}
+
+function openModal(id){
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('modeloId').value = id || '';
+  document.getElementById('btnDelete').style.display = id ? 'inline-block' : 'none';
+
+  if(id){
+    const m = modelos.find(x=>x.id===id);
+    document.getElementById('modalTitle').textContent = 'Editar modelo';
+    document.getElementById('fCodigo').value = m.codigo || '';
+    document.getElementById('fNombre').value = m.nombre || '';
+    document.getElementById('fFecha').value = m.fecha_creacion || '';
+    document.getElementById('fMedidas').value = m.medidas || '';
+    document.getElementById('fColor').value = m.color || '';
+    document.getElementById('fObservaciones').value = m.observaciones || '';
+    document.getElementById('fTieneMuestra').checked = !!m.tiene_muestra;
+    document.getElementById('fUbicacion').value = m.ubicacion_muestra || '';
+    currentModeloMateriales = (m.modelo_materiales||[]).map(mm=>mm.material_id);
+    currentFotos = (m.fotos||[]).slice();
+  } else {
+    document.getElementById('modalTitle').textContent = 'Nuevo modelo';
+    document.getElementById('fCodigo').value = '';
+    document.getElementById('fNombre').value = '';
+    document.getElementById('fFecha').value = new Date().toISOString().slice(0,10);
+    document.getElementById('fMedidas').value = '';
+    document.getElementById('fColor').value = '';
+    document.getElementById('fObservaciones').value = '';
+    document.getElementById('fTieneMuestra').checked = false;
+    document.getElementById('fUbicacion').value = '';
+    currentModeloMateriales = [];
+    currentFotos = [];
+  }
+  renderMaterialesBox(currentModeloMateriales);
+  renderFotosGrid();
+  toggleUbicacion();
+}
+
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function renderFotosGrid(){
+  const grid = document.getElementById('fotosGrid');
+  grid.innerHTML = '';
+  currentFotos.forEach(f=>{
+    const div = document.createElement('div');
+    div.className = 'foto-thumb';
+    div.innerHTML = `<img src="${f.url}"><button class="del" onclick="removeFoto('${f.id||''}', '${f.tempKey||''}')">×</button>`;
+    grid.appendChild(div);
+  });
+}
+
+async function uploadFotos(event){
+  const files = Array.from(event.target.files || []);
+  const modeloId = document.getElementById('modeloId').value;
+  for(const file of files){
+    const path = `${modeloId || 'temp'}/${Date.now()}-${file.name}`;
+    const { error: upErr } = await sb.storage.from('fotos-modelos').upload(path, file);
+    if(upErr){ showToast('Error subiendo foto: '+upErr.message); continue; }
+    const { data: pub } = sb.storage.from('fotos-modelos').getPublicUrl(path);
+    if(modeloId){
+      const { data, error } = await sb.from('fotos').insert({ modelo_id: modeloId, storage_path: path, url: pub.publicUrl }).select().single();
+      if(!error) currentFotos.push(data);
+    } else {
+      currentFotos.push({ storage_path: path, url: pub.publicUrl, tempKey: path });
+    }
+  }
+  renderFotosGrid();
+  event.target.value = '';
+}
+
+async function removeFoto(id, tempKey){
+  const foto = currentFotos.find(f => (id && f.id===id) || (tempKey && f.tempKey===tempKey));
+  if(!foto) return;
+  await sb.storage.from('fotos-modelos').remove([foto.storage_path]);
+  if(foto.id){ await sb.from('fotos').delete().eq('id', foto.id); }
+  currentFotos = currentFotos.filter(f => f !== foto);
+  renderFotosGrid();
+}
+
+async function saveModelo(){
+  const id = document.getElementById('modeloId').value;
+  const payload = {
+    codigo: document.getElementById('fCodigo').value.trim(),
+    nombre: document.getElementById('fNombre').value.trim(),
+    fecha_creacion: document.getElementById('fFecha').value || null,
+    medidas: document.getElementById('fMedidas').value.trim(),
+    color: document.getElementById('fColor').value.trim(),
+    observaciones: document.getElementById('fObservaciones').value.trim(),
+    tiene_muestra: document.getElementById('fTieneMuestra').checked,
+    ubicacion_muestra: document.getElementById('fUbicacion').value.trim() || null,
+  };
+  if(!payload.codigo || !payload.nombre){ showToast('Código y nombre son obligatorios'); return; }
+
+  let modeloId = id;
+  if(id){
+    const { error } = await sb.from('modelos').update(payload).eq('id', id);
+    if(error){ showToast('Error guardando: '+error.message); return; }
+  } else {
+    const { data, error } = await sb.from('modelos').insert(payload).select().single();
+    if(error){ showToast('Error creando: '+error.message); return; }
+    modeloId = data.id;
+    // reasignar fotos temporales al nuevo modelo
+    for(const f of currentFotos){
+      if(!f.id){
+        await sb.from('fotos').insert({ modelo_id: modeloId, storage_path: f.storage_path, url: f.url });
+      }
+    }
+  }
+
+  // sincronizar materiales
+  const selected = getSelectedMateriales();
+  await sb.from('modelo_materiales').delete().eq('modelo_id', modeloId);
+  if(selected.length){
+    const rows = selected.map(material_id => ({ modelo_id: modeloId, material_id }));
+    await sb.from('modelo_materiales').insert(rows);
+  }
+
+  showToast('Modelo guardado');
+  closeModal();
+  await loadModelos();
+}
+
+async function deleteModelo(){
+  const id = document.getElementById('modeloId').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este modelo y sus fotos? Esta acción no se puede deshacer.')) return;
+  for(const f of currentFotos){
+    await sb.storage.from('fotos-modelos').remove([f.storage_path]);
+  }
+  const { error } = await sb.from('modelos').delete().eq('id', id);
+  if(error){ showToast('Error eliminando: '+error.message); return; }
+  showToast('Modelo eliminado');
+  closeModal();
+  await loadModelos();
+}
+
+initApp();
+</script>
+</body>
+</html>
